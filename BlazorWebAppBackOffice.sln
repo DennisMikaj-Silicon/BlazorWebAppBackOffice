@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34330.188
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorWebAppBackOffice", "BlazorWebAppBackOffice\BlazorWebAppBackOffice\BlazorWebAppBackOffice.csproj", "{F9AFC913-F152-448D-9AC5-98FD32147721}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorWebAppBackOffice.Client", "BlazorWebAppBackOffice\BlazorWebAppBackOffice.Client\BlazorWebAppBackOffice.Client.csproj", "{2ADC6C71-E3AF-4921-BE26-E7E51BC76171}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F9AFC913-F152-448D-9AC5-98FD32147721}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9AFC913-F152-448D-9AC5-98FD32147721}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9AFC913-F152-448D-9AC5-98FD32147721}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9AFC913-F152-448D-9AC5-98FD32147721}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2ADC6C71-E3AF-4921-BE26-E7E51BC76171}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2ADC6C71-E3AF-4921-BE26-E7E51BC76171}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2ADC6C71-E3AF-4921-BE26-E7E51BC76171}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2ADC6C71-E3AF-4921-BE26-E7E51BC76171}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5D25D4AF-21B6-4F82-98D5-71361F3D1085}
+	EndGlobalSection
+EndGlobal

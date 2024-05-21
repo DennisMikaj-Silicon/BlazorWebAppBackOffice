@@ -1,0 +1,157 @@
+﻿@page "/users"
+@using BlazorWebAppBackOffice.Data
+@using System.ComponentModel.DataAnnotations
+@using System.Diagnostics
+@inject HttpClient Http
+@rendermode InteractiveServer
+<PageTitle>Users</PageTitle>
+
+<h1>Users</h1>
+
+<p>Manage users.</p>
+
+@if (users == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    foreach (var user in users)
+    {
+        <div class="mb-3">
+            <div>@user.FirstName @user.LastName</div>
+            <button @onclick="() => EditUser(user)">Edit User</button>
+            <button @onclick="() => DeleteUser(user.Email)">Delete User</button>
+
+        </div>
+    }
+}
+
+
+
+
+
+@if (editUser != null) {
+    <EditForm Model="editUser" OnValidSubmit="UpdateUser">
+        <DataAnnotationsValidator />
+        <div class="form-group">
+            <label>First Name:</label>
+            <InputText @bind-Value="editUser!.FirstName" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label>Last Name:</label>
+            <InputText @bind-Value="editUser.LastName" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label>Email:</label>
+            <InputText @bind-Value="editUser.Email" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-primary">Update</button>
+        <button type="button" @onclick="CancelEdit" class="btn btn-secondary">Cancel</button>
+    </EditForm>
+}
+
+@code {
+    private ApplicationUser[]? users;
+    private EditUserModel? editUser;
+    private DeleteUserModel? userToDelete;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        users = await Http.GetFromJsonAsync<ApplicationUser[]>("http://localhost:7142/api/GetUsers");
+    }
+
+    public async void DeleteUser(string email)
+    {
+
+        var response = await Http.DeleteAsync($"http://localhost:7142/api/users/delete/{email}");
+        if (response.IsSuccessStatusCode)
+        {
+            users = await Http.GetFromJsonAsync<ApplicationUser[]>("http://localhost:7142/api/GetUsers");
+            StateHasChanged();
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+
+    private void EditUser(ApplicationUser user)
+    {
+        editUser = new EditUserModel{
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Email = user.Email!
+        };
+    }
+
+    private void CancelEdit()
+    {
+        editUser = null;
+    }
+
+    private async Task UpdateUser()
+    {
+        if (editUser != null)
+        {
+            var response = await Http.PutAsJsonAsync($"http://localhost:7142/api/users/{editUser.Email}", editUser);
+
+            if (response.IsSuccessStatusCode)
+            {
+                users = await Http.GetFromJsonAsync<ApplicationUser[]>("http://localhost:7142/api/GetUsers");
+                editUser = null;
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error updating user: {error}");
+            }
+        }
+    }
+
+    public class DeleteUserModel
+    {
+        public string Email { get; set; } = null!;
+    }
+
+    public class EditUserModel
+    {
+        [Required]
+        public string FirstName { get; set; } = null!;
+
+        [Required]
+        public string LastName { get; set; } = null!;
+
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = null!;
+    }
+
+    public class ApplicationUser
+    {
+        public string FirstName { get; set; } = null!;
+        public string LastName { get; set; } = null!;
+        public object? ProfilePicture { get; set; }
+        public object? Biography { get; set; }
+        public object? UserProfileId { get; set; }
+        public object? UserAddressId { get; set; }
+        public object? UserAddress { get; set; }
+        public string? Id { get; set; }
+        public string? UserName { get; set; }
+        public string? NormalizedUserName { get; set; }
+        public string? Email { get; set; }
+        public string? NormalizedEmail { get; set; }
+        public bool EmailConfirmed { get; set; }
+        public string? PasswordHash { get; set; }
+        public string? SecurityStamp { get; set; }
+        public string? ConcurrencyStamp { get; set; }
+        public object? PhoneNumber { get; set; }
+        public bool PhoneNumberConfirmed { get; set; }
+        public bool TwoFactorEnabled { get; set; }
+        public object? LockoutEnd { get; set; }
+        public bool LockoutEnabled { get; set; }
+        public int AccessFailedCount { get; set; }
+    }
+}
