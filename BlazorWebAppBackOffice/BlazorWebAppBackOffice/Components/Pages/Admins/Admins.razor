@@ -1,0 +1,156 @@
+﻿@page "/admins"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@inject NavigationManager Navigation
+@inject UserManager<ApplicationUser> UserManager
+@rendermode InteractiveServer
+<PageTitle>Users</PageTitle>
+
+<h1>Admins</h1>
+
+<p>Manage Admins.</p>
+
+@if (users == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    foreach (var user in users)
+    {
+        <div class="mb-3">
+            <div>@user.FirstName @user.LastName (@user.Role)</div>
+            <button @onclick="() => EditUser(user)">Edit User</button>
+            <button @onclick="() => DeleteUser(user.Email)">Delete User</button>
+        </div>
+    }
+}
+
+<button @onclick="AddUser" class="btn btn-success">Add User</button>
+
+@if (editUser != null)
+{
+    <EditForm Model="editUser" OnValidSubmit="SaveUser">
+        <DataAnnotationsValidator />
+        <div class="form-group">
+            <label>First Name:</label>
+            <InputText @bind-Value="editUser!.FirstName" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label>Last Name:</label>
+            <InputText @bind-Value="editUser.LastName" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label>Email:</label>
+            <InputText @bind-Value="editUser.Email" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label>Role:</label>
+            <select @bind="editUser.Role" class="form-control">
+                <option value="Admin">Admin</option>
+                <option value="User">User</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="button" @onclick="CancelEdit" class="btn btn-secondary">Cancel</button>
+    </EditForm>
+}
+
+@code {
+    private List<ApplicationUser>? users;
+    private EditUserModel? editUser;
+
+
+
+    protected override async void OnInitialized()
+    {
+        users = await GetAdmins();
+    }
+
+    private async Task<List<ApplicationUser>> GetAdmins()
+    {
+        var admins = await UserManager.GetUsersInRoleAsync("Admin");
+        return admins.ToList();
+    }
+
+    private void AddUser()
+    {
+        editUser = new EditUserModel();
+    }
+
+    private void EditUser(ApplicationUser user)
+    {
+        editUser = new EditUserModel
+            {
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Email = user.Email,
+                Role = user.Role
+            };
+    }
+
+    private void DeleteUser(string email)
+    {
+        var user = users.FirstOrDefault(u => u.Email == email);
+        if (user != null)
+        {
+            users.Remove(user);
+        }
+    }
+
+    private void CancelEdit()
+    {
+        editUser = null;
+    }
+
+    private void SaveUser()
+    {
+        if (editUser != null)
+        {
+            var user = users.FirstOrDefault(u => u.Email == editUser.Email);
+            if (user != null)
+            {
+                // Update existing user
+                user.FirstName = editUser.FirstName;
+                user.LastName = editUser.LastName;
+                user.Role = editUser.Role;
+            }
+            else
+            {
+                // Add new user
+                users.Add(new ApplicationUser
+                    {
+                        FirstName = editUser.FirstName,
+                        LastName = editUser.LastName,
+                        Email = editUser.Email,
+                        Role = editUser.Role
+                    });
+            }
+            editUser = null;
+        }
+    }
+
+    public class EditUserModel
+    {
+        [Required]
+        public string FirstName { get; set; } = null!;
+
+        [Required]
+        public string LastName { get; set; } = null!;
+
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = null!;
+
+        [Required]
+        public string Role { get; set; } = "User";  // Default role is User
+    }
+
+    public class ApplicationUser
+    {
+        public string FirstName { get; set; } = null!;
+        public string LastName { get; set; } = null!;
+        public string Email { get; set; } = null!;
+        public string Role { get; set; } = "User"; // Add role property
+    }
+}
