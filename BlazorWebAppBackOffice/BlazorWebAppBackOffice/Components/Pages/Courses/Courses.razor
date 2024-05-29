@@ -1,0 +1,235 @@
+﻿@page "/courses"
+@using System.Text.Json
+@using BlazorWebAppBackOffice.Client.Models
+@using System.ComponentModel.DataAnnotations
+@attribute [StreamRendering]
+@inject HttpClient Http
+@rendermode InteractiveServer
+
+<section>
+    <div class="container">
+        <div class="title">
+            <h1>Manage Courses</h1>
+        </div>
+        <div class="course-grid">
+            @if (courses == null)
+            {
+                <p class="text-center"><em>Attempting to find courses...</em></p>
+            }
+            else
+            {
+                @foreach (var course in courses)
+                {
+                    <div class="mb-3">
+                        <NavLink class="mt-10" href="@( $"course-details/{course.Id}")">
+                            <h3>@course.Title</h3>
+                        </NavLink>
+                        <button @onclick="(() => DeleteCourse(course.Id!))">Delete Course</button>
+                    </div>
+                }
+                <NavLink href="/CreateCourse" class="btn btn-success">Add Course</NavLink>
+            }
+
+            @if (editCourse != null)
+            {
+                <EditForm Model="editCourse" OnValidSubmit="SaveCourse">
+                    <DataAnnotationsValidator />
+                    <div class="form-group">
+                        <label>Course Title</label>
+                        <InputText @bind-Value="editCourse.Title" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label>Course Author</label>
+                        <InputText @bind-Value="editCourse.Author" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label>Course Price</label>
+                        <InputNumber @bind-Value="editCourse.Price" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label>Course Discount</label>
+                        <InputNumber @bind-Value="editCourse.Discount" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label>Course length, in hours</label>
+                        <InputText @bind-Value="editCourse.Hours" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label>Course Likes</label>
+                        <InputText @bind-Value="editCourse.Likes" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label>Best Seller</label>
+                        <InputCheckbox @bind-Value="editCourse.IsBestseller" class="form-control"></InputCheckbox>
+                    </div>
+                    <div class="form-group">
+                        <label>Digital</label>
+                        <InputCheckbox @bind-Value="editCourse.IsDigital" class="form-control"></InputCheckbox>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="button" @onclick="CancelEdit" class="btn btn-secondary">Cancel</button>
+                </EditForm>
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    public CourseModel[]? courses;
+    private CourseModel? editCourse;
+
+    public string statusMessage { get; set; } = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var query = new GraphQLQuery { Query = "{ getAllCourses { id title authors { name } prices { price discount } hours likes isBestSeller isDigital } }" };
+        var response = await Http.PostAsJsonAsync("http://localhost:7241/api/graphql", query);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<DynamicGraphQLResponse>();
+            courses = result?.Data.GetProperty("getAllCourses").EnumerateArray()
+                .Select(course => new CourseModel
+                    {
+                        Id = course.GetProperty("id").GetString(),
+                        Title = course.GetProperty("title").GetString(),
+                        Author = GetFirstAuthor(course.GetProperty("authors")),
+                        Price = GetFirstPrice(course.GetProperty("prices")),
+                        Discount = GetFirstDiscount(course.GetProperty("prices")),
+                        Hours = course.GetProperty("hours").GetString(),
+                        Likes = course.GetProperty("likes").GetString(),
+                        IsBestseller = course.GetProperty("isBestSeller").GetBoolean(),
+                        IsDigital = course.GetProperty("isDigital").GetBoolean()
+                    })
+                .ToArray();
+        }
+    }
+
+    private string GetFirstAuthor(JsonElement authorsElement)
+    {
+        if (authorsElement.ValueKind == JsonValueKind.Array)
+        {
+            return authorsElement.EnumerateArray().First().GetProperty("name").GetString();
+        }
+        else if (authorsElement.ValueKind == JsonValueKind.Object)
+        {
+            return authorsElement.GetProperty("name").GetString();
+        }
+        return string.Empty;
+    }
+
+    private decimal GetFirstPrice(JsonElement pricesElement)
+    {
+        if (pricesElement.ValueKind == JsonValueKind.Array)
+        {
+            return pricesElement.EnumerateArray().First().GetProperty("price").GetDecimal();
+        }
+        else if (pricesElement.ValueKind == JsonValueKind.Object)
+        {
+            return pricesElement.GetProperty("price").GetDecimal();
+        }
+        return 0m;
+    }
+
+    private decimal GetFirstDiscount(JsonElement pricesElement)
+    {
+        if (pricesElement.ValueKind == JsonValueKind.Array)
+        {
+            return pricesElement.EnumerateArray().First().GetProperty("discount").GetDecimal();
+        }
+        else if (pricesElement.ValueKind == JsonValueKind.Object)
+        {
+            return pricesElement.GetProperty("discount").GetDecimal();
+        }
+        return 0m;
+    }
+
+    private void AddCourse()
+    {
+        editCourse = new CourseModel();
+    }
+
+    private void EditCourse(CourseModel course)
+    {
+        editCourse = new CourseModel
+            {
+                Title = course.Title,
+                Author = course.Author,
+                Price = course.Price,
+                Discount = course.Discount,
+                Hours = course.Hours,
+                Likes = course.Likes,
+                IsBestseller = course.IsBestseller,
+                IsDigital = course.IsDigital,
+                Description = course.Description,
+                Reviews = course.Reviews,
+                StarRating = course.StarRating,
+                Ingress = course.Ingress,
+                LikesInPercent = course.LikesInPercent,
+                Includes = course.Includes
+            };
+
+        Console.WriteLine($"Editing course: {editCourse.Title}");
+    }
+
+    private async Task DeleteCourse(string id)
+    {
+        if (string.IsNullOrEmpty(id))
+        {
+            statusMessage = "Invalid course Id.";
+            return;
+        }
+
+        var query = new GraphQLQuery { Query = $"mutation {{ DeleteCourse(id: \"{id}\") }}" };
+        var response = await Http.PostAsJsonAsync("http://localhost:7241/api/graphql", query);
+
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "Course Deleted.";
+            courses = courses?.Where(c => c.Id != id).ToArray();
+        }
+        else
+        {
+            var errorMessage = await response.Content.ReadAsStringAsync();
+            statusMessage = $"Error deleting course: {errorMessage}";
+        }
+    }
+
+    private void CancelEdit()
+    {
+        editCourse = null;
+    }
+
+    private async Task SaveCourse()
+    {
+        // Implementation for saving course goes here
+        if (editCourse != null)
+        {
+            // Save logic here
+
+            // Refresh course list or update the UI accordingly
+            editCourse = null;
+        }
+    }
+
+    public class CourseModel
+    {
+        [Key]
+        public string? Id { get; set; }
+        public string? Title { get; set; }
+        public string? ImageHeaderUri { get; set; }
+        public string? Author { get; set; }
+        public string? Description { get; set; }
+        public string? Ingress { get; set; }
+        public string? Reviews { get; set; }
+        public List<string>? Includes { get; set; }
+        public int StarRating { get; set; }
+        public bool IsDigital { get; set; }
+        public bool IsBestseller { get; set; }
+        public string? Hours { get; set; }
+        public Decimal Price { get; set; }
+        public Decimal Discount { get; set; }
+        public string? LikesInPercent { get; set; }
+        public string? Likes { get; set; }
+    }
+}

@@ -1,0 +1,250 @@
+﻿@page "/CreateCourse"
+
+@inject HttpClient Http
+
+
+@rendermode InteractiveServer
+
+
+<h3>Create Course</h3>
+
+@if (statusMessage != string.Empty)
+{
+    <div class="alert-danger">
+        @statusMessage
+    </div>
+}
+
+
+
+<EditForm Model="@courseForm" OnValidSubmit="CreateCourseAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label>Image URI</label>
+        <InputText @bind-Value="courseForm.ImageUri" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Image Header URI</label>
+        <InputText @bind-Value="courseForm.ImageHeaderUri" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Is Best Seller</label>
+        <InputCheckbox @bind-Value="courseForm.IsBestSeller" />
+    </div>
+    <div class="form-group">
+        <label>Is Digital</label>
+        <InputCheckbox @bind-Value="courseForm.IsDigital" />
+    </div>
+    <div class="form-group">
+        <label>Categories</label>
+        <InputText @bind-Value="courseForm.Categories" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Title</label>
+        <InputText @bind-Value="courseForm.Title" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Ingress</label>
+        <InputText @bind-Value="courseForm.Ingress" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Star Rating</label>
+        <InputNumber @bind-Value="courseForm.StarRating" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Reviews</label>
+        <InputText @bind-Value="courseForm.Reviews" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Likes In Percent</label>
+        <InputText @bind-Value="courseForm.LikesInPercent" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Likes</label>
+        <InputText @bind-Value="courseForm.Likes" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Hours</label>
+        <InputText @bind-Value="courseForm.Hours" class="form-control" />
+    </div>
+
+    <h4>Authors</h4>
+    <div class="form-group">
+        <label>Author</label>
+        <InputText @bind-Value="courseForm.Authors[0].Name" class="form-control"  />
+    </div>
+
+    <h4>Prices</h4>
+    <div class="form-group">
+        <label>Currency</label>
+        <InputText @bind-Value="courseForm.Prices.Currency" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Price</label>
+        <InputNumber @bind-Value="courseForm.Prices.Price" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Discount</label>
+        <InputNumber @bind-Value="courseForm.Prices.Discount" class="form-control" />
+    </div>
+
+    <h4>Content</h4>
+    <div class="form-group">
+        <label>Description</label>
+        <InputTextArea @bind-Value="courseForm.Content.Description" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Includes</label>
+        <InputTextArea @bind-Value="includesString" class="form-control" />
+    </div>
+   
+
+    <button type="submit" class="btn btn-primary">Create Course</button>
+</EditForm>
+
+
+
+
+
+
+
+
+@code {
+    private CourseCreateRequest courseForm = new CourseCreateRequest
+        {
+            Authors = new List<AuthorCreateRequest> { new AuthorCreateRequest() },
+            Prices = new PricesCreateRequest(),
+            Content = new ContentCreateRequest
+            {
+                ProgramDetails = new List<ProgramDetailItemCreateRequest>()
+            }
+        };
+    private string includesString = "";
+
+
+
+    public string statusMessage { get; set; } = "";
+
+
+
+    private async Task CreateCourseAsync()
+    {
+        try
+        {
+            if (courseForm.Content == null)
+            {
+                statusMessage = "Content is null.";
+                return;
+            }
+
+            if (courseForm.Content.ProgramDetails == null)
+            {
+                statusMessage = "ProgramDetails is null.";
+                return;
+            }
+
+            var input = new
+            {
+                imageUri = courseForm.ImageUri,
+                imageHeaderUri = courseForm.ImageHeaderUri,
+                isBestSeller = courseForm.IsBestSeller,
+                isDigital = courseForm.IsDigital,
+                categories = courseForm.Categories,
+                title = courseForm.Title,
+                ingress = courseForm.Ingress,
+                starRating = courseForm.StarRating,
+                reviews = courseForm.Reviews,
+                likesInPercent = courseForm.LikesInPercent,
+                likes = courseForm.Likes,
+                hours = courseForm.Hours,
+                authors = courseForm.Authors.Select(a => new { name = a.Name }),
+                prices = new
+                {
+                    currency = courseForm.Prices.Currency,
+                    price = courseForm.Prices.Price,
+                    discount = courseForm.Prices.Discount
+                },
+                content = new
+                {
+                    description = courseForm.Content.Description,
+                    includes = courseForm.Content.Includes,
+                    programDetails = courseForm.Content.ProgramDetails.Select(pd => new { id = pd.Id, title = courseForm.Title, description = courseForm.Content.Description })
+                }
+            };
+
+
+            var mutation = new
+            {
+                query = "mutation ($input: CourseCreateRequestInput!) { CreateCourse(input: $input) { id title } }",
+                variables = new { input }
+            };
+
+            var response = await Http.PostAsJsonAsync("http://localhost:7241/api/graphql", mutation);
+
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "Successfully added course.";
+            }
+            else
+            {
+                statusMessage = "Failed to add course.";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"An error occured: {ex.Message}";
+        }
+
+    }
+
+
+
+
+    public class CourseCreateRequest
+    {
+    public string? ImageUri { get; set; }
+    public string? ImageHeaderUri { get; set; }
+    public bool IsBestSeller { get; set; }
+    public bool IsDigital { get; set; }
+    public string? Categories { get; set; }
+    public string? Title { get; set; }
+    public string? Ingress { get; set; }
+    public decimal StarRating { get; set; }
+    public string? Reviews { get; set; }
+    public string? LikesInPercent { get; set; }
+    public string? Likes { get; set; }
+    public string? Hours { get; set; }
+    public virtual List<AuthorCreateRequest>? Authors { get; set; }
+    public virtual PricesCreateRequest? Prices { get; set; }
+    public virtual ContentCreateRequest? Content { get; set; }
+    }
+
+    public class AuthorCreateRequest
+    {
+    public string? Name { get; set; }
+    }
+
+    public class PricesCreateRequest
+    {
+    public string? Currency { get; set; }
+    public decimal Price { get; set; }
+    public decimal Discount { get; set; }
+    }
+    public class ContentCreateRequest
+    {
+    public string? Description { get; set; }
+    public string[]? Includes { get; set; }
+    public virtual List<ProgramDetailItemCreateRequest>? ProgramDetails { get; set; }
+
+    }
+
+    public class ProgramDetailItemCreateRequest
+    {
+    public int Id { get; set; }
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    }
+
+}
