@@ -1,32 +1,34 @@
 ﻿@page "/admins"
 @using System.ComponentModel.DataAnnotations
+@using BlazorWebAppBackOffice.Data
 @using Microsoft.AspNetCore.Identity
-@inject NavigationManager Navigation
+@using Microsoft.EntityFrameworkCore
 @inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
 @rendermode InteractiveServer
-<PageTitle>Users</PageTitle>
+<PageTitle>Admins</PageTitle>
 
 <h1>Admins</h1>
 
 <p>Manage Admins.</p>
 
-@if (users == null)
+@if (admins == null || admins.Count == 0)
 {
     <p><em>Loading...</em></p>
 }
 else
 {
-    foreach (var user in users)
+    foreach (var admin in admins)
     {
         <div class="mb-3">
-            <div>@user.FirstName @user.LastName (@user.Role)</div>
-            <button @onclick="() => EditUser(user)">Edit User</button>
-            <button @onclick="() => DeleteUser(user.Email)">Delete User</button>
+            <div>@admin.FirstName @admin.LastName (@admin.Role)</div>
+            <button @onclick="() => EditUser(admin)">Edit User</button>
+            <button @onclick="() => DeleteUser(admin.Email)">Delete User</button>
         </div>
     }
 }
 
-<button @onclick="AddUser" class="btn btn-success">Add User</button>
+<button @onclick="AddUser" class="btn btn-success">Add Admin</button>
 
 @if (editUser != null)
 {
@@ -57,20 +59,18 @@ else
 }
 
 @code {
-    private List<ApplicationUser>? users;
+    private List<ApplicationUser>? admins;
     private EditUserModel? editUser;
 
-
-
-    protected override async void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        users = await GetAdmins();
+        admins = await GetAdmins();
     }
 
     private async Task<List<ApplicationUser>> GetAdmins()
     {
-        var admins = await UserManager.GetUsersInRoleAsync("Admin");
-        return admins.ToList();
+        var result = await UserManager.Users.ToListAsync();
+        return result;
     }
 
     private void AddUser()
@@ -89,12 +89,13 @@ else
             };
     }
 
-    private void DeleteUser(string email)
+    private async Task DeleteUser(string email)
     {
-        var user = users.FirstOrDefault(u => u.Email == email);
-        if (user != null)
+        var admin = await UserManager.FindByEmailAsync(email);
+        if (admin != null)
         {
-            users.Remove(user);
+            await UserManager.DeleteAsync(admin);
+            admins = await GetAdmins();
         }
     }
 
@@ -103,29 +104,32 @@ else
         editUser = null;
     }
 
-    private void SaveUser()
+    private async Task SaveUser()
     {
         if (editUser != null)
         {
-            var user = users.FirstOrDefault(u => u.Email == editUser.Email);
+            var user = await UserManager.FindByEmailAsync(editUser.Email);
             if (user != null)
             {
-                // Update existing user
                 user.FirstName = editUser.FirstName;
                 user.LastName = editUser.LastName;
                 user.Role = editUser.Role;
+                await UserManager.UpdateAsync(user);
             }
             else
             {
-                // Add new user
-                users.Add(new ApplicationUser
+                var newUser = new ApplicationUser
                     {
                         FirstName = editUser.FirstName,
                         LastName = editUser.LastName,
                         Email = editUser.Email,
+                        UserName = editUser.Email,
                         Role = editUser.Role
-                    });
+                    };
+                await UserManager.CreateAsync(newUser);
+                await UserManager.AddToRoleAsync(newUser, editUser.Role);
             }
+            admins = await GetAdmins();
             editUser = null;
         }
     }
@@ -143,14 +147,8 @@ else
         public string Email { get; set; } = null!;
 
         [Required]
-        public string Role { get; set; } = "User";  // Default role is User
+        public string Role { get; set; } = "User"; 
     }
 
-    public class ApplicationUser
-    {
-        public string FirstName { get; set; } = null!;
-        public string LastName { get; set; } = null!;
-        public string Email { get; set; } = null!;
-        public string Role { get; set; } = "User"; // Add role property
-    }
-}
+    
+                }
