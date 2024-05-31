@@ -1,0 +1,149 @@
+﻿@page "/subscribers"
+@using System.ComponentModel.DataAnnotations
+@inject HttpClient Http
+@rendermode InteractiveServer
+
+<h1>Subscribers</h1>
+
+<p>Manage subscribers.</p>
+
+
+@if (StatusMessage != string.Empty)
+{
+    <p class="alert-success d-flex">@StatusMessage</p>
+}
+
+@if (subscribers == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    foreach (var subscriber in subscribers)
+    {
+        <div class="mb-3">
+            <div>
+                @subscriber.Email
+                @if (subscriber.SubscribeToNewsletter)
+                {
+                    <span>Is Subscribed to Newsletter.</span>
+                }
+            </div>
+            <button @onclick="() => EditSubscriber(subscriber)">Edit User</button>
+            <button @onclick="() => DeleteSubscriber(subscriber.Email)">Delete User</button>
+        </div>
+    }
+}
+
+@if (editSubscriber != null)
+{
+    <EditForm Model="editSubscriber" OnValidSubmit="UpdateSubscriber">
+        <DataAnnotationsValidator />
+        <div class="form-group">
+            <input type="hidden" @bind="editSubscriber.OriginalEmail" />
+            <label>Email:</label>
+            <InputText @bind-Value="editSubscriber.Email" class="form-control" />
+            <label>Subscribe to NewsLetter</label>
+            <InputCheckbox @bind-Value="editSubscriber.SubscribeToNewsletter"></InputCheckbox>
+        </div>
+        <button type="submit" class="btn btn-primary">Update</button>
+        <button type="button" @onclick="CancelEdit" class="btn btn-secondary">Cancel</button>
+    </EditForm>
+}
+
+@code {
+    private SubscriberModel[]? subscribers;
+    private SubscriberModel editSubscriber;
+    public string StatusMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        subscribers = await Http.GetFromJsonAsync<SubscriberModel[]>("http://localhost:7214/api/GetSubscribers");
+    }
+
+    public async void DeleteSubscriber(string email)
+    {
+        var unSubscriberModel = new UnSubscriberModel { Email = email };
+        var result = await Http.PostAsJsonAsync("http://localhost:7214/api/Unsubscribe", unSubscriberModel);
+
+        if (result.StatusCode == System.Net.HttpStatusCode.OK)
+        {
+            StatusMessage = "User has been unsubscribed.";
+            subscribers = await Http.GetFromJsonAsync<SubscriberModel[]>("http://localhost:7214/api/GetSubscribers");
+
+            StateHasChanged();
+        }
+        else
+        {
+            StatusMessage = "Unable to unsubscribe, try again later.";
+            StateHasChanged();
+        }
+    }
+
+    private async Task UpdateSubscriber()
+    {
+        if (editSubscriber != null)
+        {
+            var updateModel = new UpdateSubscriberModel
+                {
+                    Email = editSubscriber.Email,
+                    SubscribeToNewsletter = editSubscriber.SubscribeToNewsletter
+                };
+
+            var result = await Http.PostAsJsonAsync($"http://localhost:7214/api/subscribers/{editSubscriber.OriginalEmail}", updateModel);
+
+            if (result.IsSuccessStatusCode)
+            {
+                StatusMessage = "Subscriber has been updated.";
+                subscribers = await Http.GetFromJsonAsync<SubscriberModel[]>("http://localhost:7214/api/GetSubscribers");
+            }
+            else
+            {
+                StatusMessage = "Unable to update subscriber, try again later.";
+            }
+
+            editSubscriber = null;
+        }
+    }
+
+
+    private void EditSubscriber(SubscriberModel subscriber)
+    {
+        editSubscriber = new SubscriberModel
+            {
+                Email = subscriber.Email,
+                OriginalEmail = subscriber.Email
+            };
+    }
+
+    private void CancelEdit()
+    {
+        editSubscriber = null;
+    }
+
+    public class UpdateSubscriberModel
+    {
+        [Required]
+        public string Email { get; set; }
+
+        public bool SubscribeToNewsletter { get; set; }
+
+    }
+
+
+    public class UnSubscriberModel
+    {
+        [Required(ErrorMessage = "Email is required")]
+        public string? Email { get; set; }
+    }
+
+    public class SubscriberModel
+    {
+        [Required(ErrorMessage = "Email is required")]
+        public string? Email { get; set; }
+
+        public string OriginalEmail { get; set; }
+
+        public bool SubscribeToNewsletter { get; set; }
+    }
+}
