@@ -3,16 +3,17 @@
 @using BlazorWebAppBackOffice.Data
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
-@inject UserManager<ApplicationUser> UserManager
+@using System.Data.SqlTypes
 @inject NavigationManager Navigation
+@inject HttpClient Http
 @rendermode InteractiveServer
-<PageTitle>Admins</PageTitle>
+<PageTitle>Users</PageTitle>
 
 <h1>Admins</h1>
 
 <p>Manage Admins.</p>
 
-@if (admins == null || admins.Count == 0)
+@if (admins == null)
 {
     <p><em>Loading...</em></p>
 }
@@ -21,9 +22,9 @@ else
     foreach (var admin in admins)
     {
         <div class="mb-3">
-            <div>@admin.FirstName @admin.LastName (@admin.Role)</div>
-            <button @onclick="() => EditUser(admin)">Edit User</button>
-            <button @onclick="() => DeleteUser(admin.Email)">Delete User</button>
+            <div>@admin.Email (@admin.Role)</div>
+            <button @onclick="() => EditUser(admin)">Edit Admin</button>
+            <button @onclick="() => DeleteUser(admin.Email)">Delete Admin</button>
         </div>
     }
 }
@@ -35,17 +36,11 @@ else
     <EditForm Model="editUser" OnValidSubmit="SaveUser">
         <DataAnnotationsValidator />
         <div class="form-group">
-            <label>First Name:</label>
-            <InputText @bind-Value="editUser!.FirstName" class="form-control" />
-        </div>
-        <div class="form-group">
-            <label>Last Name:</label>
-            <InputText @bind-Value="editUser.LastName" class="form-control" />
-        </div>
-        <div class="form-group">
+            <input type="hidden" @bind="editUser.OriginalEmail" />
             <label>Email:</label>
-            <InputText @bind-Value="editUser.Email" class="form-control" />
+            <InputText @bind-Value="editUser!.Email" class="form-control" />
         </div>
+
         <div class="form-group">
             <label>Role:</label>
             <select @bind="editUser.Role" class="form-control">
@@ -59,18 +54,14 @@ else
 }
 
 @code {
-    private List<ApplicationUser>? admins;
+    private List<ApplicationAdmin>? admins;
     private EditUserModel? editUser;
+
+    public string statusMessage { get; set; } = "";
 
     protected override async Task OnInitializedAsync()
     {
-        admins = await GetAdmins();
-    }
-
-    private async Task<List<ApplicationUser>> GetAdmins()
-    {
-        var result = await UserManager.Users.ToListAsync();
-        return result;
+        admins = await Http.GetFromJsonAsync<List<ApplicationAdmin>>("https://backofficeadminprovider.azurewebsites.net/api/GetAdmins?code=zBiWbdRlZiVrv0_cxJP6OEc-aFackQpJ00xQoKH_5RFQAzFuntyfuw%3D%3D");
     }
 
     private void AddUser()
@@ -78,24 +69,27 @@ else
         editUser = new EditUserModel();
     }
 
-    private void EditUser(ApplicationUser user)
+    private void EditUser(ApplicationAdmin admin)
     {
         editUser = new EditUserModel
             {
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                Email = user.Email,
-                Role = user.Role
+                Email = admin.Email,
+                OriginalEmail = admin.Email,
+                Role = admin.Role
+
             };
     }
 
     private async Task DeleteUser(string email)
     {
-        var admin = await UserManager.FindByEmailAsync(email);
-        if (admin != null)
+        var response = await Http.PostAsJsonAsync($"https://backofficeadminprovider.azurewebsites.net/api/silicon/admins/delete/{email}?code=4nw2908PWFeDeDrzQKGDJrJufjC3QXVBfd_9hAn-ch6RAzFu_JJR5w%3D%3D", editUser);
+        if (response.IsSuccessStatusCode)
         {
-            await UserManager.DeleteAsync(admin);
-            admins = await GetAdmins();
+            admins = await Http.GetFromJsonAsync<List<ApplicationAdmin>>("https://backofficeadminprovider.azurewebsites.net/api/GetAdmins?code=zBiWbdRlZiVrv0_cxJP6OEc-aFackQpJ00xQoKH_5RFQAzFuntyfuw%3D%3D");
+        }
+        else
+        {
+            statusMessage = "Unable to delete user, try again later.";
         }
     }
 
@@ -108,47 +102,41 @@ else
     {
         if (editUser != null)
         {
-            var user = await UserManager.FindByEmailAsync(editUser.Email);
-            if (user != null)
+            HttpResponseMessage response;
+
+            response = await Http.PostAsJsonAsync($"https://backofficeadminprovider.azurewebsites.net/api/silicon/admin/update/{editUser.OriginalEmail}?code=DCHOaD6OZlchLtMjDe8Ir9HA1PW-d9QTtq5jRkyQn4Z_AzFu0ykrPw%3D%3D", editUser);
+
+
+
+            if (response.IsSuccessStatusCode)
             {
-                user.FirstName = editUser.FirstName;
-                user.LastName = editUser.LastName;
-                user.Role = editUser.Role;
-                await UserManager.UpdateAsync(user);
+                admins = await Http.GetFromJsonAsync<List<ApplicationAdmin>>("https://backofficeadminprovider.azurewebsites.net/api/GetAdmins?code=zBiWbdRlZiVrv0_cxJP6OEc-aFackQpJ00xQoKH_5RFQAzFuntyfuw%3D%3D");
+                editUser = null;
             }
             else
             {
-                var newUser = new ApplicationUser
-                    {
-                        FirstName = editUser.FirstName,
-                        LastName = editUser.LastName,
-                        Email = editUser.Email,
-                        UserName = editUser.Email,
-                        Role = editUser.Role
-                    };
-                await UserManager.CreateAsync(newUser);
-                await UserManager.AddToRoleAsync(newUser, editUser.Role);
+                statusMessage = "Unable to save user, try again later.";
             }
-            admins = await GetAdmins();
-            editUser = null;
         }
     }
 
     public class EditUserModel
     {
         [Required]
-        public string FirstName { get; set; } = null!;
-
-        [Required]
-        public string LastName { get; set; } = null!;
-
-        [Required]
         [EmailAddress]
         public string Email { get; set; } = null!;
 
+        public string OriginalEmail { get; set; }
+
+
         [Required]
-        public string Role { get; set; } = "User"; 
+        public string Role { get; set; } = null!;
     }
 
-    
-                }
+    public class ApplicationAdmin : IdentityUser
+    {
+        public string OriginalEmail { get; set; }
+
+        public string Role { get; set; } = "User";
+    }
+}
